@@ -1,13 +1,12 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, String, Float32
 
 
 
 class WatchdogNode(Node):
     def __init__(self):
         super().__init__('WatchdogNode')
-        
         
         # Internal state variables
         self.battery_voltage = None
@@ -17,12 +16,36 @@ class WatchdogNode(Node):
         self.ssh_connected = self.check_ssh_connection()
         
         # Subscriber
-        self.subscription = self.create_subscription(
-            String,
-            'chatter',
-            self.listener_callback,
+        self.sub_current = self.create_subscription(
+            Float32,
+            '/vesc/current',
+            self.subCurrent_callback,
             10)
-        self.subscription  # Prevent unused variable warning
+        self.sub_current
+        
+        # Subscriber
+        self.sub_voltage = self.create_subscription(
+            Float32,
+            '/vesc/voltage',
+            self.subVoltage_callback,
+            10)
+        self.sub_voltage  # Prevent unused variable warning
+        
+        # Subscriber
+        self.sub_temperature= self.create_subscription(
+            Float32,
+            '/vesc/temperature',
+            self.subTemperature_callback,
+            10)
+        self.sub_temperature # Prevent unused variable warning # Subscriber
+        
+        self.sub_velocity= self.create_subscription(
+            Float32,
+            '/cmd_vel',
+            self.subvelocity_callback,
+            10)
+        self.sub_velocity # Prevent unused variable warning 
+        
         
         self.get_logger().info(" Watchdog has been started")
         
@@ -45,6 +68,32 @@ class WatchdogNode(Node):
     
     def listener_callback(self, msg):
         self.get_logger().info(f'Received: "{msg.data}"')
+        
+    def subCurrent_callback(self, msg):
+        self.battery_voltage = msg.data
+        self.get_logger().info(f'Battery Voltage: "{self.battery_voltage}"')
+        self.check_battery_status()
+        self.publish_status_message()
+    
+    def subVoltage_callback(self, msg):
+        pass   
+    
+    def subTemperature_callback(self, msg):
+        self.battery_percentage = msg.data
+        self.get_logger().info(f'Battery Percentage: "{self.battery_percentage}"')
+        self.check_battery_status()
+        self.publish_status_message()
+    
+    def subvelocity_callback(self, msg):
+        # Check if the motor is responding to velocity commands
+        if msg.linear.x == 0.0 and msg.angular.z == 0.0:
+            self.motor_status = False
+        else:
+            self.motor_status = True
+        self.get_logger().info(f'Motor Status: {"Operational" if self.motor_status else "Not Responding"}')
+        self.publish_status_message()
+        
+        
         
     def generate_status_message(self):
         # Create a status string with all health parameters
