@@ -14,7 +14,7 @@ class WatchdogNode(Node):
         # Internal state variables
         self.battery_voltage = None
         self.motor_current = None
-        self.motor.temperature = None
+        self.motor_temperature = None
         self.motor_velocity = None
         self.motor_Angularvelocity = None
         self.lidar_status = None
@@ -26,14 +26,14 @@ class WatchdogNode(Node):
         
         # Subscriber
         
-        self.subscription = self.create_subscription(
+        self.sub_laserLidar = self.create_subscription(
             LaserScan,
             '/scan',
             self.check_lidar_status,
             10
         )
 
-        self.subscription = self.create_subscription(
+        self.sub_diagnosticLidar = self.create_subscription(
             DiagnosticArray,
             '/diagnostics',
             self.diagnostics_callback,
@@ -74,16 +74,16 @@ class WatchdogNode(Node):
       
         
         # Publisher boolean
-        self.publisherStop= self.create_publisher(Bool, 'watchdog/critical', 10)
+        self.publisherStop= self.create_publisher(Bool, '/watchdog/critical', 10)
         
         # Publisher 
-        self.publisherWarning= self.create_publisher(String, 'watchdog/warning', 10) 
+        self.publisherWarning= self.create_publisher(String, '/watchdog/warning', 10) 
         
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
         # Timer to publish messages
-        self.timer = self.create_timer(1.0, self.timer_callback)
+        #self.timer = self.create_timer(1.0, self.timer_callback)
 
     def check_lidar_status(self):
         # Check if we've missed scan messages for >1 second
@@ -103,11 +103,6 @@ class WatchdogNode(Node):
                 for kv in status.values:
                     self.get_logger().info(f"  {kv.key}: {kv.value}")
 
-    def timer_callback(self):
-        msg = String()
-        msg.data = 'Hello, ROS 2!'
-        self.publisher_.publish(msg)
-        self.get_logger().info(f'Published: "{msg.data}"')
     
     def listener_callback(self, msg):
         self.get_logger().info(f'Received: "{msg.data}"')
@@ -115,7 +110,7 @@ class WatchdogNode(Node):
     def subCurrent_callback(self, msg):
         self.battery_voltage = msg.data
         self.get_logger().info(f'Battery Voltage: "{self.battery_voltage}"')
-        self.check_battery_status()
+        self.check_battery_status() 
         self.publish_status_message()
     
     def subVoltage_callback(self, msg):
