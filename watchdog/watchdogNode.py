@@ -13,7 +13,10 @@ class WatchdogNode(Node):
         self.battery_percentage = None
         self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
-        self.ssh_connected = self.check_ssh_connection()
+        #self.ssh_connected = self.check_ssh_connection()
+        
+        
+        self.get_logger().info(" Watchdog has been started")
         
         # Subscriber
         self.sub_current = self.create_subscription(
@@ -32,40 +35,33 @@ class WatchdogNode(Node):
         self.sub_voltage  # Prevent unused variable warning
         
         # Subscriber
-        self.sub_temperature= self.create_subscription(
+        self.sub_temperature = self.create_subscription(
             Float32,
             '/vesc/temperature',
             self.subTemperature_callback,
             10)
-        self.sub_temperature # Prevent unused variable warning # Subscriber
+        self.sub_temperature 
         
-        self.sub_velocity= self.create_subscription(
+        self.sub_velocity = self.create_subscription(
             Float32,
             '/cmd_vel',
             self.subvelocity_callback,
             10)
-        self.sub_velocity # Prevent unused variable warning 
+        self.sub_velocity 
         
         
-        self.get_logger().info(" Watchdog has been started")
+      
         
         # Publisher boolean
-        self.publisherStop= self.create_publisher(bool, 'watchdog/critical', 10)
+        self.publisherStop= self.create_publisher(Bool, 'watchdog/critical', 10)
+        
+        # Publisher 
         self.publisherWarning= self.create_publisher(String, 'watchdog/warning', 10) 
         
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
-        # Timer to publish messages
-        self.timer = self.create_timer(1.0, self.timer_callback)
-        
-      
     
-    def timer_callback(self):
-        msg = String()
-        msg.data = 'Hello, ROS 2!'
-        self.publisher_.publish(msg)
-        self.get_logger().info(f'Published: "{msg.data}"')
     
     def listener_callback(self, msg):
         self.get_logger().info(f'Received: "{msg.data}"')
