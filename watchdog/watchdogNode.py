@@ -50,10 +50,11 @@ class WatchdogNode(Node):
         self.get_logger().info(" Watchdog has been started")
         
         # Publisher boolean
-        self.publisher_ = self.create_publisher(bool, 'watchdog', 10)
+        self.publisherStop= self.create_publisher(bool, 'watchdog/critical', 10)
+        self.publisherWarning= self.create_publisher(String, 'watchdog/warning', 10) 
         
         # Publisher
-        self.publisher_ = self.create_publisher(String, '/system/status', 10)
+        self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
         # Timer to publish messages
         self.timer = self.create_timer(1.0, self.timer_callback)
@@ -145,3 +146,9 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+
+#9V – 52V (Safe for 3S to 12S LiPo/LiIon). Voltage spikes may not exceed 60V
+
+#Start of Thermal Throttling: Typically set around 80°C.
+#Complete Shutdown Threshold: Commonly configured at 100°C.
