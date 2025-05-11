@@ -10,7 +10,10 @@ class WatchdogNode(Node):
         
         # Internal state variables
         self.battery_voltage = None
-        self.battery_percentage = None
+        self.motor_current = None
+        self.motor.temperature = None
+        self.motor_velocity = None
+        self.motor_Angularvelocity = None
         self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
         #self.ssh_connected = self.check_ssh_connection()
@@ -101,26 +104,23 @@ class WatchdogNode(Node):
             status_msg += "Battery: No data\n"
         else:
             status_msg += f"Battery Voltage: {self.battery_voltage}V\n"
-            status_msg += f"Battery Percentage: {self.battery_percentage}%\n"
         
-        # Check temperature (this can be part of another sensor or data stream)
-        # For simplicity, assume it's stable unless you have a separate sensor for temperature.
         status_msg += "Temperature: Stable\n"
         
-        # Check motor status (motor doesn't respond)
+        # Motor
         if not self.motor_status:
-            status_msg += "Motor: Not Responding\n"
+            status_msg += "Motor: Idel\n"
         else:
             status_msg += "Motor: Operational\n"
         
-        # Check LiDAR status
+        # LiDAR
         if self.lidar_status is None:
             status_msg += "LiDAR: No data\n"
         else:
             status_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
         
         # Check SSH connection status
-        status_msg += f"SSH Connection: {'Active' if self.ssh_connected else 'Inactive'}\n"
+        #status_msg += f"SSH Connection: {'Active' if self.ssh_connected else 'Inactive'}\n"
 
         # Communication lost check (can implement based on received messages)
         # For example, if no `cmd_vel` message has been received for a certain period
