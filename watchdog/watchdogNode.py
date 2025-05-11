@@ -1,6 +1,9 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, String, Float32
+from diagnostic_msgs.msg import DiagnosticArray
+from sensor_msgs.msg import LaserScan
+from rclpy.duration import Duration
 
 
 
@@ -16,6 +19,21 @@ class WatchdogNode(Node):
         self.ssh_connected = self.check_ssh_connection()
         
         # Subscriber
+        
+        self.subscription = self.create_subscription(
+            LaserScan,
+            '/scan',
+            self.check_lidar_status,
+            10
+        )
+
+        self.subscription = self.create_subscription(
+            DiagnosticArray,
+            '/diagnostics',
+            self.diagnostics_callback,
+            10
+        )
+
         self.sub_current = self.create_subscription(
             Float32,
             '/vesc/current',
@@ -58,9 +76,25 @@ class WatchdogNode(Node):
         
         # Timer to publish messages
         self.timer = self.create_timer(1.0, self.timer_callback)
-        
-      
+
+    def check_lidar_status(self):
+        # Check if we've missed scan messages for >1 second
+        elapsed = self.get_clock().now() - self.last_msg_time
+        if elapsed > Duration(seconds=1.0):
+            if self.lidar_online:
+                self.lidar_online = False
+                self.get_logger().warn("LiDAR is OFFLINE — no scan received in >1s")
     
+    def diagnostics_callback(self, msg):
+        for status in msg.status:
+            if 'hokuyo' in status.name.lower() or 'lidar' in status.name.lower():
+                self.get_logger().info(f"Status: {status.name}")
+                self.get_logger().info(f"Level: {status.level} | Message: {status.message}")
+                if status.level > 0:
+                    self.get_logger().warn(f"⚠️ Problem detected: {status.message}")
+                for kv in status.values:
+                    self.get_logger().info(f"  {kv.key}: {kv.value}")
+
     def timer_callback(self):
         msg = String()
         msg.data = 'Hello, ROS 2!'
