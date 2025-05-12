@@ -3,6 +3,7 @@ from rclpy.node import Node
 from std_msgs.msg import Bool, String, Float32
 from diagnostic_msgs.msg import DiagnosticArray
 from sensor_msgs.msg import LaserScan
+from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 
 
@@ -14,9 +15,9 @@ class WatchdogNode(Node):
         # Internal state variables
         self.battery_voltage = None
         self.motor_current = None
-        self.motor.temperature = None
+        self.motor_temperature = None
         self.motor_velocity = None
-        self.motor_Angularvelocity = None
+        self.motor_angularvelocity = None
         self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
         #self.ssh_connected = self.check_ssh_connection()
@@ -64,7 +65,7 @@ class WatchdogNode(Node):
         self.sub_temperature 
         
         self.sub_velocity = self.create_subscription(
-            Float32,
+            Twist,
             '/cmd_vel',
             self.subvelocity_callback,
             10)
@@ -72,7 +73,6 @@ class WatchdogNode(Node):
         
         
       
-        
         # Publisher boolean
         self.publisherStop= self.create_publisher(Bool, 'watchdog/critical', 10)
         
@@ -84,6 +84,15 @@ class WatchdogNode(Node):
         
         # Timer to publish messages
         self.timer = self.create_timer(1.0, self.timer_callback)
+
+    # def listener_callback(self, msg):
+    #     self.get_logger().info(f'Received: "{msg.data}"')
+
+    # def timer_callback(self):
+    #     msg = String()
+    #     msg.data = 'Hello, ROS 2!'
+    #     self.publisher_.publish(msg)
+    #     self.get_logger().info(f'Published: "{msg.data}"')
 
     def check_lidar_status(self):
         # Check if we've missed scan messages for >1 second
@@ -103,29 +112,21 @@ class WatchdogNode(Node):
                 for kv in status.values:
                     self.get_logger().info(f"  {kv.key}: {kv.value}")
 
-    def timer_callback(self):
-        msg = String()
-        msg.data = 'Hello, ROS 2!'
-        self.publisher_.publish(msg)
-        self.get_logger().info(f'Published: "{msg.data}"')
-    
-    def listener_callback(self, msg):
-        self.get_logger().info(f'Received: "{msg.data}"')
         
     def subCurrent_callback(self, msg):
-        self.battery_voltage = msg.data
-        self.get_logger().info(f'Battery Voltage: "{self.battery_voltage}"')
-        self.check_battery_status()
-        self.publish_status_message()
+        self.motor_current = msg.data
+        self.get_logger().info(f'Motor Current: "{self.motor_current}"')
+        # self.check_battery_status()
+        # self.publish_status_message()
     
     def subVoltage_callback(self, msg):
         pass   
     
     def subTemperature_callback(self, msg):
-        self.battery_percentage = msg.data
-        self.get_logger().info(f'Battery Percentage: "{self.battery_percentage}"')
-        self.check_battery_status()
-        self.publish_status_message()
+        self.motor_temperature = msg.data
+        self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}"')
+        # self.check_battery_status()
+        # self.publish_status_message()
     
     def subvelocity_callback(self, msg):
         # Check if the motor is responding to velocity commands
@@ -190,4 +191,4 @@ if __name__ == '__main__':
 #9V – 52V (Safe for 3S to 12S LiPo/LiIon). Voltage spikes may not exceed 60V
 
 #Start of Thermal Throttling: Typically set around 80°C.
-#Complete Shutdown Threshold: Commonly configured at 100°C.
+#Complete Shutdown Threshold: Commonly configured at 100°C. default 15%
