@@ -4,7 +4,6 @@ from std_msgs.msg import Bool, String, Float32
 from diagnostic_msgs.msg import DiagnosticArray
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
-from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 
 
@@ -22,6 +21,7 @@ class WatchdogNode(Node):
         self.motor_angularvelocity = None
         self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
+        self.isCritical = False
  
         
         
@@ -74,9 +74,6 @@ class WatchdogNode(Node):
         self.sub_velocity 
         
         
-      
-        
-      
         # Publisher boolean
         self.publisherStop= self.create_publisher(Bool, '/watchdog/critical', 10)
         
@@ -85,6 +82,10 @@ class WatchdogNode(Node):
         
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
+        
+        self.publisherStatus.publishs(self.generate_status_message())
+        self.publisherWarning.publishs(self.generate_warning_message())
+        self.publisherStop.publishs(self.isCritical)
         
 
     def check_lidar_status(self):
@@ -156,6 +157,40 @@ class WatchdogNode(Node):
             status_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
 
         return status_msg
+    
+    
+    def generate_warning_message(self):
+        # Create a warning string with all health parameters
+        warning_msg = "Warning:\n"
+        
+        # Check battery status
+        if self.battery_voltage < 9.0:
+            warning_msg += f"Battery Voltage: {self.battery_voltage}V \n"
+            
+        if self.battery_voltage > 52.0:
+            warning_msg += f"Battery Voltage: {self.battery_voltage}V (Out of range)\n"
+        
+        # Motor
+        if not self.motor_status:
+            warning_msg += "Motor: Idel\n"
+        else:
+            warning_msg += "Motor: Operational\n"
+        
+        # LiDAR
+        if self.lidar_status is None:
+            warning_msg += "LiDAR: No data\n"
+        else:
+            warning_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
+
+        return warning_msg\
+            
+            
+    def log_colored_text(self):
+        red = '\033[91m'
+        yellow = '\033[93m'
+        reset = '\033[0m'
+
+
 
 
 def main(args=None):
