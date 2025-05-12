@@ -7,6 +7,10 @@ from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 
 
+red = '\033[91m'
+yellow = '\033[93m'
+reset = '\033[0m'
+
 
 class WatchdogNode(Node):
     def __init__(self):
@@ -84,8 +88,8 @@ class WatchdogNode(Node):
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
         self.publisherStatus.publishs(self.generate_status_message())
-        self.publisherWarning.publishs(self.generate_warning_message())
-        self.publisherStop.publishs(self.isCritical)
+        self.publisherWarning.publishs(f"{yellow}{self.generate_warning_message()}{reset}")
+        self.publisherStop.publishs(f"{red}{self.isCritical}{reset}")
         
 
     def check_lidar_status(self):
