@@ -7,6 +7,10 @@ from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 
 
+red = '\033[91m'
+yellow = '\033[93m'
+reset = '\033[0m'
+
 
 class WatchdogNode(Node):
     def __init__(self):
@@ -18,8 +22,7 @@ class WatchdogNode(Node):
         self.motor_temperature = None
         self.motor_velocity = None
         self.motor_angularvelocity = None
-        self.motor_angularvelocity = None
-        self.lidar_status = True
+        self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
         self.lidar_previous = None
         self.last_msg_time = None
@@ -86,8 +89,8 @@ class WatchdogNode(Node):
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
         self.publisherStatus.publishs(self.generate_status_message())
-        self.publisherWarning.publishs(self.generate_warning_message())
-        self.publisherStop.publishs(self.isCritical)
+        self.publisherWarning.publishs(f"{yellow}{self.generate_warning_message()}{reset}")
+        self.publisherStop.publishs(f"{red}{self.isCritical}{reset}")
         
 
     def check_lidar_status(self):
@@ -174,31 +177,33 @@ class WatchdogNode(Node):
         warning_msg = "Warning:\n"
         
         # Check battery status
+        if self.battery_voltage < 0.0:
+            warning_msg += f"Battery Voltage is negative\n"
+            
         if self.battery_voltage < 9.0:
             warning_msg += f"Battery Voltage: {self.battery_voltage}V \n"
             
         if self.battery_voltage > 52.0:
             warning_msg += f"Battery Voltage: {self.battery_voltage}V (Out of range)\n"
+            
+        # Check temperature
+        if self.motor_temperature > 80.0:
+            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (High) The Velocity will reduced by 15% \n"
+        elif self.motor_temperature > 90.0:
+            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (High) More reduction in Velocity\n"
+        elif self.motor_temperature > 100.0:
+            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (Critical)\n"
         
         # Motor
         if not self.motor_status:
             warning_msg += "Motor: Idel\n"
-        else:
-            warning_msg += "Motor: Operational\n"
         
         # LiDAR
-        if self.lidar_status is None:
-            warning_msg += "LiDAR: No data\n"
-        else:
-            warning_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
+        warning_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
 
-        return warning_msg\
+        return warning_msg
             
             
-    def log_colored_text(self):
-        red = '\033[91m'
-        yellow = '\033[93m'
-        reset = '\033[0m'
 
 
 
