@@ -17,11 +17,11 @@ class WatchdogNode(Node):
         super().__init__('WatchdogNode')
         
         # Internal state variables
-        self.battery_voltage = None
-        self.motor_current = None
-        self.motor_temperature = None
-        self.motor_velocity = None
-        self.motor_angularvelocity = None
+        self.battery_voltage = 0.0
+        self.motor_current = 0.0
+        self.motor_temperature = 0.0
+        self.motor_velocity = 0.0
+        self.motor_angularvelocity = 0.0
         self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
         self.isCritical = False
@@ -86,9 +86,16 @@ class WatchdogNode(Node):
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
-        self.publisherStatus.publishs(self.generate_status_message())
-        self.publisherWarning.publishs(f"{yellow}{self.generate_warning_message()}{reset}")
-        self.publisherStop.publishs(f"{red}{self.isCritical}{reset}")
+        msg = Bool()
+        msg.data = self.isCritical
+        msg1 = String()
+        msg1.data = self.generate_status_message()
+        msg2 = String()
+        msg2.data = f"{yellow}{self.generate_warning_message()}{reset}"
+        self.publisherStop.publish(msg)
+        self.publisherStatus.publish(msg1)
+        self.publisherWarning.publish(msg2)
+        
         
 
     def check_lidar_status(self):
@@ -140,7 +147,7 @@ class WatchdogNode(Node):
         status_msg = "System Status:\n"
         
         # Check battery status
-        if self.battery_voltage is None or self.battery_percentage is None:
+        if self.battery_voltage == 0.0:
             status_msg += "Battery: No data\n"
         else:
             status_msg += f"Battery Voltage: {self.battery_voltage}V\n"
