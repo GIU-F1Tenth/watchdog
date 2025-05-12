@@ -24,11 +24,13 @@ class WatchdogNode(Node):
         self.motor_angularvelocity = 0.0
         self.lidar_status = None
         self.motor_status = True  # Assuming motor is healthy initially
+        self.lidar_previous = None
+        self.last_msg_time = None
         self.isCritical = False
  
         
         
-        self.get_logger().info(" Watchdog has been started")
+        self.get_logger().info(" Watchdog has been started ")
         
         # Subscriber
         
@@ -100,10 +102,14 @@ class WatchdogNode(Node):
 
     def check_lidar_status(self):
         # Check if we've missed scan messages for >1 second
-        elapsed = self.get_clock().now() - self.last_msg_time
+
+        self.last_msg_time = self.get_clock().now()
+        elapsed = self.last_msg_time - self.lidar_previous
+        self.lidar_previous=self.last_msg_time
+
         if elapsed > Duration(seconds=1.0):
-            if self.lidar_online:
-                self.lidar_online = False
+            if self.lidar_status:
+                self.lidar_status = False
                 self.get_logger().warn("LiDAR is OFFLINE — no scan received in >1s")
     
     def diagnostics_callback(self, msg):
@@ -112,23 +118,26 @@ class WatchdogNode(Node):
                 self.get_logger().info(f"Status: {status.name}")
                 self.get_logger().info(f"Level: {status.level} | Message: {status.message}")
                 if status.level > 0:
-                    self.get_logger().warn(f"⚠️ Problem detected: {status.message}")
+                    self.get_logger().warn(f"Problem detected: {status.message}")
                 for kv in status.values:
                     self.get_logger().info(f"  {kv.key}: {kv.value}")
 
 
     def subCurrent_callback(self, msg):
         self.motor_current = msg.data
-        self.get_logger().info(f'Motor Current: "{self.motor_current}"')
+        self.get_logger().info(f'Motor Current: "{self.motor_current}" A')
 
 
     
     def subVoltage_callback(self, msg):
-        pass   
+        self.battery_voltage = msg.data
+        self.get_logger().info(f'Battery Voltage: "{self.battery_voltage}" V')
     
     def subTemperature_callback(self, msg):
         self.motor_temperature = msg.data
-        self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}"')
+        if self.motor_temperature >= 90:
+            self.isCritical = True
+        self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}" C')
 
     
     def subvelocity_callback(self, msg):
@@ -137,8 +146,9 @@ class WatchdogNode(Node):
             self.motor_status = False
         else:
             self.motor_status = True
+        self.get_logger().info(f"Velocity Command - Linear: {self.motor_velocity}, Angular: {self.motor_angularvelocity}")
         self.get_logger().info(f'Motor Status: {"Operational" if self.motor_status else "Not Responding"}')
-        self.publish_status_message()
+        # self.publish_status_message()
         
         
         
