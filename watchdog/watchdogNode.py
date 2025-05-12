@@ -68,7 +68,6 @@ class WatchdogNode(Node):
         
         self.sub_velocity = self.create_subscription(
             Twist,
-            Twist,
             '/cmd_vel',
             self.subvelocity_callback,
             10)
