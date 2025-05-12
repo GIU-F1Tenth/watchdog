@@ -88,15 +88,6 @@ class WatchdogNode(Node):
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
         
 
-    # def listener_callback(self, msg):
-    #     self.get_logger().info(f'Received: "{msg.data}"')
-
-    # def timer_callback(self):
-    #     msg = String()
-    #     msg.data = 'Hello, ROS 2!'
-    #     self.publisher_.publish(msg)
-    #     self.get_logger().info(f'Published: "{msg.data}"')
-
     def check_lidar_status(self):
         # Check if we've missed scan messages for >1 second
         elapsed = self.get_clock().now() - self.last_msg_time
@@ -115,21 +106,12 @@ class WatchdogNode(Node):
                 for kv in status.values:
                     self.get_logger().info(f"  {kv.key}: {kv.value}")
 
-    def timer_callback(self):
-        msg = String()
-        msg.data = 'Hello, ROS 2!'
-        self.publisher_.publish(msg)
-        self.get_logger().info(f'Published: "{msg.data}"')
 
     def subCurrent_callback(self, msg):
         self.motor_current = msg.data
         self.get_logger().info(f'Motor Current: "{self.motor_current}"')
-        # self.check_battery_status()
-        # self.publish_status_message()
-        self.motor_current = msg.data
-        self.get_logger().info(f'Motor Current: "{self.motor_current}"')
-        # self.check_battery_status()
-        # self.publish_status_message()
+
+
     
     def subVoltage_callback(self, msg):
         pass   
@@ -137,12 +119,7 @@ class WatchdogNode(Node):
     def subTemperature_callback(self, msg):
         self.motor_temperature = msg.data
         self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}"')
-        # self.check_battery_status()
-        # self.publish_status_message()
-        self.motor_temperature = msg.data
-        self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}"')
-        # self.check_battery_status()
-        # self.publish_status_message()
+
     
     def subvelocity_callback(self, msg):
         # Check if the motor is responding to velocity commands
@@ -178,13 +155,6 @@ class WatchdogNode(Node):
             status_msg += "LiDAR: No data\n"
         else:
             status_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
-        
-        # Check SSH connection status
-        #status_msg += f"SSH Connection: {'Active' if self.ssh_connected else 'Inactive'}\n"
-
-        # Communication lost check (can implement based on received messages)
-        # For example, if no `cmd_vel` message has been received for a certain period
-        status_msg += "Communication: Active\n"  # Customize this condition as needed
 
         return status_msg
 
@@ -207,5 +177,4 @@ if __name__ == '__main__':
 #9V – 52V (Safe for 3S to 12S LiPo/LiIon). Voltage spikes may not exceed 60V
 
 #Start of Thermal Throttling: Typically set around 80°C.
-#Complete Shutdown Threshold: Commonly configured at 100°C. default 15%
 #Complete Shutdown Threshold: Commonly configured at 100°C. default 15%
