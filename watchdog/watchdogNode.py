@@ -107,12 +107,12 @@ class WatchdogNode(Node):
     def publish_warning(self):
         msg2 = String()
         msg2.data = f"{yellow}{self.generate_warning_message()}{reset}"
-        self.publisherStatus.publish(msg2)
+        self.publisherWarning.publish(msg2)
     
     def publish_critical(self):
         msg = Bool()
         msg.data = self.isCritical
-        self.publisherStatus.publish(msg)
+        self.publisherStop.publish(msg)
 
         
 
