@@ -99,9 +99,9 @@ class WatchdogNode(Node):
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
 
-        self.status_timer = self.create_timer(1.0, self.publish_status_message)  # every 1 seconds
-        self.status_timer = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
-        self.status_timer = self.create_timer(1.0, self.publish_critical)  # every 1 seconds
+        self.timer_status = self.create_timer(1.0, self.publish_status_message)  # every 1 seconds
+        self.timer_warning = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
+        self.timer_critical = self.create_timer(1.0, self.publish_critical)  # every 1 seconds
 
     def publish_status_message(self):
         msg = String()
@@ -131,13 +131,19 @@ class WatchdogNode(Node):
         # Calculate elapsed time in seconds
         elapsed = (Time.from_msg(self.last_msg_time) - Time.from_msg(self.lidar_previous)).nanoseconds * 1e-9
 
-        self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
+        #self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
 
         self.lidar_previous = self.last_msg_time
 
         # Check if elapsed time exceeds the timeout
+        #if elapsed > self.lidar_timeout:
+            #self.get_logger().warn(f"No LiDAR message received for {elapsed:.2f} seconds!")
+            
         if elapsed > self.lidar_timeout:
-            self.get_logger().warn(f"No LiDAR message received for {elapsed:.2f} seconds!")
+            self.lidar_status = False
+        else:
+            self.lidar_status = True
+
 
     def diagnostics_callback(self, msg):
         for status in msg.status:
