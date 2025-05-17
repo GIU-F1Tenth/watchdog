@@ -24,7 +24,7 @@ class WatchdogNode(Node):
         self.motor_angularvelocity = 0.0
         self.lidar_status = None
         self.motor_status = False
-        self.vesc_status = False
+        self.vesc_status = None
         self.lidar_previous = None
         self.last_msg_time = None
         self.isCritical = False
@@ -193,43 +193,50 @@ class WatchdogNode(Node):
         else:
             status_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
 
+        # VESC
+        if self.vesc_status is None:
+            status_msg += "VESC: No data\n"
+        else:
+            status_msg += f"VESC: {'Operational' if self.vesc_status else 'Faulty'}\n"
+
         return status_msg
     
     
     def generate_warning_message(self):
         # Create a warning string with all health parameters
         warning_msg = "Warning:\n"
-        
+
         # Check battery status
         if self.battery_voltage < 0.0:
-            warning_msg += f"Battery Voltage is negative\n"
-            
+            warning_msg += "Battery Voltage is negative\n"
+
         if self.battery_voltage < 9.0:
-            warning_msg += f"Battery Voltage: {self.battery_voltage}V \n"
-            
+            warning_msg += f"Battery Voltage: {self.battery_voltage}V\n"
+
         if self.battery_voltage > 52.0:
             warning_msg += f"Battery Voltage: {self.battery_voltage}V (Out of range)\n"
-            
-        # Check temperature
-        if self.motor_temperature > 80.0:
-            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (High) The Velocity will reduced by 15% \n"
-        elif self.motor_temperature > 90.0:
-            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (High) More reduction in Velocity\n"
-        elif self.motor_temperature > 100.0:
+
+        # Check temperature — order matters
+        if self.motor_temperature > 100.0:
             warning_msg += f"Motor Temperature: {self.motor_temperature}°C (Critical)\n"
-        
+        elif self.motor_temperature > 90.0:
+            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (Very High – More reduction in velocity)\n"
+        elif self.motor_temperature > 80.0:
+            warning_msg += f"Motor Temperature: {self.motor_temperature}°C (High – Velocity reduced by 15%)\n"
+
         # Motor
         if not self.motor_status:
-            warning_msg += "Motor: Idel\n"
-        
-        
+            warning_msg += "Motor: Idle\n"
+
         # LiDAR
         warning_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
 
-        # VESC
-        warning_msg += f"VESC: {'Operational' if self.vesc_status else 'Faulty'}\n"
+        # VESC (only include if you track its status)
+        if hasattr(self, 'vesc_status'):
+            warning_msg += f"VESC: {'Operational' if self.vesc_status else 'Faulty'}\n"
 
         return warning_msg
+
             
             
 
