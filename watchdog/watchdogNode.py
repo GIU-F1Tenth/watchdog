@@ -5,6 +5,8 @@ from diagnostic_msgs.msg import DiagnosticArray
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
+from rclpy.time import Time
+
 
 
 red = '\033[91m'
@@ -17,6 +19,7 @@ class WatchdogNode(Node):
         super().__init__('WatchdogNode')
         
         # Internal state variables
+        self.lidar_timeout = 1.0  
         self.battery_voltage = 0.0
         self.motor_current = 0.0
         self.motor_temperature = 0.0
@@ -118,16 +121,24 @@ class WatchdogNode(Node):
         
 
     def check_lidar_status(self, msg):
-        # Check if we've missed scan messages for >1 second
-        self.last_msg_time = self.get_clock().now()
-        elapsed = self.last_msg_time - self.lidar_previous
-        self.lidar_previous=self.last_msg_time
+        self.last_msg_time = msg.header.stamp
 
-        if elapsed > Duration(seconds=1.0):
-            if self.lidar_status:
-                self.lidar_status = False
-                self.get_logger().warn("LiDAR is OFFLINE — no scan received in >1s")
-    
+        if self.lidar_previous is None:
+            self.get_logger().info("Initializing lidar_previous timestamp")
+            self.lidar_previous = self.last_msg_time
+            return
+
+        # Calculate elapsed time in seconds
+        elapsed = (Time.from_msg(self.last_msg_time) - Time.from_msg(self.lidar_previous)).nanoseconds * 1e-9
+
+        self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
+
+        self.lidar_previous = self.last_msg_time
+
+        # Check if elapsed time exceeds the timeout
+        if elapsed > self.lidar_timeout:
+            self.get_logger().warn(f"No LiDAR message received for {elapsed:.2f} seconds!")
+
     def diagnostics_callback(self, msg):
         for status in msg.status:
             if 'hokuyo' in status.name.lower() or 'lidar' in status.name.lower():
