@@ -23,7 +23,8 @@ class WatchdogNode(Node):
         self.motor_velocity = 0.0
         self.motor_angularvelocity = 0.0
         self.lidar_status = None
-        self.motor_status = True  # Assuming motor is healthy initially
+        self.motor_status = False
+        self.vesc_status = False
         self.lidar_previous = None
         self.last_msg_time = None
         self.isCritical = False
@@ -221,8 +222,12 @@ class WatchdogNode(Node):
         if not self.motor_status:
             warning_msg += "Motor: Idel\n"
         
+        
         # LiDAR
         warning_msg += f"LiDAR: {'Operational' if self.lidar_status else 'Faulty'}\n"
+
+        # VESC
+        warning_msg += f"VESC: {'Operational' if self.vesc_status else 'Faulty'}\n"
 
         return warning_msg
             
