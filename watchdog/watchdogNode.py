@@ -187,8 +187,8 @@ class WatchdogNode(Node):
         else:
             status_msg += "Motor: Operational\n"
 
-        status_msg += f"Velocity = {self.motor_velocity}"
-        status_msg += f"Angular Velocity = {self.motor_angularvelocity}"
+        status_msg += f"Velocity = {self.motor_velocity}\n"
+        status_msg += f"Angular Velocity = {self.motor_angularvelocity}\n"
         
         # LiDAR
         if self.lidar_status is None:
