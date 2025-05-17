@@ -119,7 +119,6 @@ class WatchdogNode(Node):
 
     def check_lidar_status(self):
         # Check if we've missed scan messages for >1 second
-
         self.last_msg_time = self.get_clock().now()
         elapsed = self.last_msg_time - self.lidar_previous
         self.lidar_previous=self.last_msg_time
@@ -138,7 +137,6 @@ class WatchdogNode(Node):
                     self.get_logger().warn(f"Problem detected: {status.message}")
                 for kv in status.values:
                     self.get_logger().info(f"  {kv.key}: {kv.value}")
-
 
     def subCurrent_callback(self, msg):
         self.motor_current = msg.data
@@ -163,13 +161,15 @@ class WatchdogNode(Node):
             self.motor_status = False
         else:
             self.motor_status = True
+
+        self.motor_velocity = msg.linear.x
+        self.motor_angularvelocity = msg.angular.z
         self.get_logger().info(f"Velocity Command - Linear: {self.motor_velocity}, Angular: {self.motor_angularvelocity}")
         self.get_logger().info(f'Motor Status: {"Operational" if self.motor_status else "Not Responding"}')
-        # self.publish_status_message()
         
         
         
-    def generate_status_message(self):
+    def generate_status_message(self): # VElocity and angular 
         # Create a status string with all health parameters
         status_msg = "System Status:\n"
         
@@ -186,6 +186,9 @@ class WatchdogNode(Node):
             status_msg += "Motor: Idel\n"
         else:
             status_msg += "Motor: Operational\n"
+
+        status_msg += f"Velocity = {self.motor_velocity}"
+        status_msg += f"Angular Velocity = {self.motor_angularvelocity}"
         
         # LiDAR
         if self.lidar_status is None:
