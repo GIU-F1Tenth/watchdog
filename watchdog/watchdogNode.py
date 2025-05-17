@@ -117,7 +117,7 @@ class WatchdogNode(Node):
 
         
 
-    def check_lidar_status(self):
+    def check_lidar_status(self, msg):
         # Check if we've missed scan messages for >1 second
         self.last_msg_time = self.get_clock().now()
         elapsed = self.last_msg_time - self.lidar_previous
