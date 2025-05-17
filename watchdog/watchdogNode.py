@@ -34,9 +34,16 @@ class WatchdogNode(Node):
         
         # Subscriber
         
-        self.sub_laserLidar = self.create_subscription(
+        self.sub_scanLidar = self.create_subscription(
             LaserScan,
             '/scan',
+            self.check_lidar_status,
+            10
+        )
+
+        self.sub_laserLidar = self.create_subscription(
+            LaserScan,
+            '/laser',
             self.check_lidar_status,
             10
         )
@@ -87,17 +94,26 @@ class WatchdogNode(Node):
         
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/system/status', 10)
-        
-        msg = Bool()
-        msg.data = self.isCritical
-        msg1 = String()
-        msg1.data = self.generate_status_message()
+
+        self.status_timer = self.create_timer(1.0, self.publish_status_message)  # every 1 seconds
+        self.status_timer = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
+        self.status_timer = self.create_timer(1.0, self.publish_critical)  # every 1 seconds
+
+    def publish_status_message(self):
+        msg = String()
+        msg.data = self.generate_status_message()
+        self.publisherStatus.publish(msg)
+
+    def publish_warning(self):
         msg2 = String()
         msg2.data = f"{yellow}{self.generate_warning_message()}{reset}"
-        self.publisherStop.publish(msg)
-        self.publisherStatus.publish(msg1)
-        self.publisherWarning.publish(msg2)
-        
+        self.publisherStatus.publish(msg2)
+    
+    def publish_critical(self):
+        msg = Bool()
+        msg.data = self.isCritical
+        self.publisherStatus.publish(msg)
+
         
 
     def check_lidar_status(self):
