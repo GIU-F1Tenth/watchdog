@@ -59,29 +59,6 @@ class WatchdogNode(Node):
             self.diagnostics_callback,
             10
         )
-
-        self.sub_current = self.create_subscription(
-            Float32,
-            '/vesc/current',
-            self.subCurrent_callback,
-            10)
-        self.sub_current
-        
-        # Subscriber
-        self.sub_voltage = self.create_subscription(
-            Float32,
-            '/vesc/voltage',
-            self.subVoltage_callback,
-            10)
-        self.sub_voltage  # Prevent unused variable warning
-        
-        # Subscriber
-        self.sub_temperature = self.create_subscription(
-            Float32,
-            '/vesc/temperature',
-            self.subTemperature_callback,
-            10)
-        self.sub_temperature 
         
         self.sub_velocity = self.create_subscription(
             Twist,
