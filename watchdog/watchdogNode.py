@@ -84,7 +84,7 @@ class WatchdogNode(Node):
         
         self.sub_velocity = self.create_subscription(
             Twist,
-            '/cmd_vel',
+            '/ackermann_cmd',
             self.subvelocity_callback,
             10)
         self.sub_velocity 
@@ -131,7 +131,7 @@ class WatchdogNode(Node):
         # Calculate elapsed time in seconds
         elapsed = (Time.from_msg(self.last_msg_time) - Time.from_msg(self.lidar_previous)).nanoseconds * 1e-9
 
-        #self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
+        self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
 
         self.lidar_previous = self.last_msg_time
 
