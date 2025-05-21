@@ -6,7 +6,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 from rclpy.time import Time
-from vesc_msgs.msg import VescStateStamped
+from vesc.vesc_msgs.msg import VescStateStamped
 
 
 
@@ -273,7 +273,8 @@ class WatchdogNode(Node):
             self.get_logger().warn(f"Battery voltage out of range: {self.battery_voltage}V")
         if self.motor_temperature > 80.0:
             self.get_logger().warn(f"High motor temperature: {self.motor_temperature}°C")
-
+        if self.motor_temperature > 90.0:
+            self.isCritical = True
             
             
 
