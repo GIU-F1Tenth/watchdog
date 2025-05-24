@@ -6,9 +6,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from rclpy.duration import Duration
 from rclpy.time import Time
-from vesc.vesc_msgs.msg import VescStateStamped
-
-
+from nav_msgs.msg import Odometry
 
 red = '\033[91m'
 yellow = '\033[93m'
