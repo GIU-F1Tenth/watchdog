@@ -65,12 +65,12 @@ class WatchdogNode(Node):
             10)
         self.sub_velocity 
         
-        self.sub_core = self.create_subscription(
+        self.sub_odom=  self.create_subscription(
             Odometry        ,
             '/odom',
-            self.sub_core_callback,
+            self.odom_callback,
             10)
-        self.sub_core
+        self.sub_odom
         
         # Publisher boolean
         self.publisherStop= self.create_publisher(Bool, '/watchdog/critical', 10)
@@ -84,6 +84,15 @@ class WatchdogNode(Node):
         self.timer_status = self.create_timer(1.0, self.publish_status_message)  # every 1 seconds
         self.timer_warning = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
         self.timer_critical = self.create_timer(1.0, self.publish_critical)  # every 1 seconds
+
+
+    def odom_callback(self, msg):
+        self.motor_velocity = msg.twist.twist.linear.x  # forward velocity
+        self.motor_angularvelocity = msg.twist.twist.angular.z  # rotation (yaw rate)
+        
+        self.get_logger().info(f"Linear Velocity: {self.motor_velocity} m/s")
+        self.get_logger().info(f"Angular Velocity: {self.motor_angularvelocity} rad/s")
+
 
     def publish_status_message(self):
         msg = String()
