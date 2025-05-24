@@ -66,8 +66,8 @@ class WatchdogNode(Node):
         self.sub_velocity 
         
         self.sub_core = self.create_subscription(
-            VescStateStamped        ,
-            '/sensors/core',
+            Odometry        ,
+            '/odom',
             self.sub_core_callback,
             10)
         self.sub_core
@@ -239,19 +239,6 @@ class WatchdogNode(Node):
 
         return warning_msg
     
-    def sub_core_callback(self, msg: VescStateStamped):
-        self.battery_voltage = msg.state.voltage_input
-        self.motor_current = msg.state.current_motor
-        self.motor_temperature = msg.state.temperature_pcb
-        # Implement safety checks
-        if self.battery_voltage < 9.0 or self.battery_voltage > 52.0:
-            self.get_logger().warn(f"Battery voltage out of range: {self.battery_voltage}V")
-        if self.motor_temperature > 80.0:
-            self.get_logger().warn(f"High motor temperature: {self.motor_temperature}°C")
-        if self.motor_temperature > 90.0:
-            self.isCritical = True
-            
-            
 
 
 
