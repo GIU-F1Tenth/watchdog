@@ -73,13 +73,13 @@ class WatchdogNode(Node):
         self.motor_velocity = msg.twist.twist.linear.x  # forward velocity
         self.motor_angularvelocity = msg.twist.twist.angular.z  # rotation (yaw rate)
         
-        if msg.linear.x == 0.0 and msg.angular.z == 0.0:
+        if self.motor_velocity == 0.0 and self.motor_angularvelocity == 0.0:
             self.motor_status = False
         else:
             self.motor_status = True
         
-        self.get_logger().info(f"Linear Velocity: {self.motor_velocity} m/s")
-        self.get_logger().info(f"Angular Velocity: {self.motor_angularvelocity} rad/s")
+        #self.get_logger().info(f"Linear Velocity: {self.motor_velocity} m/s")
+        #self.get_logger().info(f"Angular Velocity: {self.motor_angularvelocity} rad/s")
 
 
     def publish_status_message(self):
@@ -103,14 +103,14 @@ class WatchdogNode(Node):
         self.last_msg_time = msg.header.stamp
 
         if self.lidar_previous is None:
-            self.get_logger().info("Initializing lidar_previous timestamp")
+            #self.get_logger().info("Initializing lidar_previous timestamp")
             self.lidar_previous = self.last_msg_time
             return
 
         # Calculate elapsed time in seconds
         elapsed = (Time.from_msg(self.last_msg_time) - Time.from_msg(self.lidar_previous)).nanoseconds * 1e-9
 
-        self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
+        #self.get_logger().info(f"Elapsed time since last LiDAR message: {elapsed:.3f} seconds")
 
         self.lidar_previous = self.last_msg_time
 
