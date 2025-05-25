@@ -1,10 +1,7 @@
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Bool, String, Float32
-from diagnostic_msgs.msg import DiagnosticArray
+from std_msgs.msg import Bool, String
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import Twist
-from rclpy.duration import Duration
 from rclpy.time import Time
 from nav_msgs.msg import Odometry
 
@@ -50,20 +47,6 @@ class WatchdogNode(Node):
             self.check_lidar_status,
             10
         )
-
-        self.sub_diagnosticLidar = self.create_subscription(
-            DiagnosticArray,
-            '/diagnostics',
-            self.diagnostics_callback,
-            10
-        )
-        
-        self.sub_velocity = self.create_subscription(
-            Twist,
-            '/ackermann_cmd',
-            self.subvelocity_callback,
-            10)
-        self.sub_velocity 
         
         self.sub_odom=  self.create_subscription(
             Odometry        ,
@@ -89,6 +72,11 @@ class WatchdogNode(Node):
     def odom_callback(self, msg):
         self.motor_velocity = msg.twist.twist.linear.x  # forward velocity
         self.motor_angularvelocity = msg.twist.twist.angular.z  # rotation (yaw rate)
+        
+        if msg.linear.x == 0.0 and msg.angular.z == 0.0:
+            self.motor_status = False
+        else:
+            self.motor_status = True
         
         self.get_logger().info(f"Linear Velocity: {self.motor_velocity} m/s")
         self.get_logger().info(f"Angular Velocity: {self.motor_angularvelocity} rad/s")
@@ -136,20 +124,9 @@ class WatchdogNode(Node):
             self.lidar_status = True
 
 
-    def diagnostics_callback(self, msg):
-        for status in msg.status:
-            if 'hokuyo' in status.name.lower() or 'lidar' in status.name.lower():
-                self.get_logger().info(f"Status: {status.name}")
-                self.get_logger().info(f"Level: {status.level} | Message: {status.message}")
-                if status.level > 0:
-                    self.get_logger().warn(f"Problem detected: {status.message}")
-                for kv in status.values:
-                    self.get_logger().info(f"  {kv.key}: {kv.value}")
-
     def subCurrent_callback(self, msg):
         self.motor_current = msg.data
         self.get_logger().info(f'Motor Current: "{self.motor_current}" A')
-
 
     
     def subVoltage_callback(self, msg):
@@ -161,19 +138,6 @@ class WatchdogNode(Node):
         if self.motor_temperature >= 90:
             self.isCritical = True
         self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}" C')
-
-    
-    def subvelocity_callback(self, msg):
-        # Check if the motor is responding to velocity commands
-        if msg.linear.x == 0.0 and msg.angular.z == 0.0:
-            self.motor_status = False
-        else:
-            self.motor_status = True
-
-        self.motor_velocity = msg.linear.x
-        self.motor_angularvelocity = msg.angular.z
-        self.get_logger().info(f"Velocity Command - Linear: {self.motor_velocity}, Angular: {self.motor_angularvelocity}")
-        self.get_logger().info(f'Motor Status: {"Operational" if self.motor_status else "Not Responding"}')
         
         
         
