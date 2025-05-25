@@ -40,13 +40,6 @@ class WatchdogNode(Node):
             self.check_lidar_status,
             10
         )
-
-        self.sub_laserLidar = self.create_subscription(
-            LaserScan,
-            '/laser',
-            self.check_lidar_status,
-            10
-        )
         
         self.sub_odom=  self.create_subscription(
             Odometry        ,
@@ -98,7 +91,6 @@ class WatchdogNode(Node):
         self.publisherStop.publish(msg)
 
         
-
     def check_lidar_status(self, msg):
         self.last_msg_time = msg.header.stamp
 
@@ -122,6 +114,9 @@ class WatchdogNode(Node):
             self.lidar_status = False
         else:
             self.lidar_status = True
+            
+        if elapsed > 1.0:
+            issCritical = True
 
 
     def subCurrent_callback(self, msg):
@@ -138,7 +133,6 @@ class WatchdogNode(Node):
         if self.motor_temperature >= 90:
             self.isCritical = True
         self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}" C')
-        
         
         
     def generate_status_message(self): # VElocity and angular 
