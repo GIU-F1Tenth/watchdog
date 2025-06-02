@@ -84,7 +84,7 @@ class WatchdogNode(Node):
     def sub_core_callback(self, msg: VescStateStamped):
         self.battery_voltage = msg.state.voltage_input
         self.motor_current = msg.state.current_motor
-        self.motor_temperature = msg.state.temperature_pcb
+        self.motor_temperature = msg.state.temp_motor
         # Implement safety checks
         if self.battery_voltage < 9.0 or self.battery_voltage > 52.0:
             self.get_logger().warn(f"Battery voltage out of range: {self.battery_voltage}V")
@@ -135,22 +135,6 @@ class WatchdogNode(Node):
             
         if elapsed > 1.0:
             issCritical = True
-
-
-    def subCurrent_callback(self, msg):
-        self.motor_current = msg.data
-        self.get_logger().info(f'Motor Current: "{self.motor_current}" A')
-
-    
-    def subVoltage_callback(self, msg):
-        self.battery_voltage = msg.data
-        self.get_logger().info(f'Battery Voltage: "{self.battery_voltage}" V')
-    
-    def subTemperature_callback(self, msg):
-        self.motor_temperature = msg.data
-        if self.motor_temperature >= 90:
-            self.isCritical = True
-        self.get_logger().info(f'Motor Temperature: "{self.motor_temperature}" C')
         
         
     def generate_status_message(self): # VElocity and angular 
@@ -163,7 +147,7 @@ class WatchdogNode(Node):
         else:
             status_msg += f"Battery Voltage: {self.battery_voltage}V\n"
         
-        status_msg += "Temperature: Stable\n"
+        status_msg += f"Temperature: {self.motor_temperature}\n"
         
         # Motor
         if not self.motor_status:
