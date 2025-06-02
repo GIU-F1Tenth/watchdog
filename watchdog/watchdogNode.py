@@ -6,6 +6,8 @@ from rclpy.time import Time
 from nav_msgs.msg import Odometry
 from vesc_msgs.msg import VescStateStamped
 
+import config
+
 red = '\033[91m'
 yellow = '\033[93m'
 reset = '\033[0m'
@@ -62,7 +64,7 @@ class WatchdogNode(Node):
         self.publisherWarning= self.create_publisher(String, '/watchdog/warning', 10) 
         
         # Publisher
-        self.publisherStatus = self.create_publisher(String, '/system/status', 10)
+        self.publisherStatus = self.create_publisher(String, '/watchdog/system/status', 10)
 
         self.timer_status = self.create_timer(1.0, self.publish_status_message)  # every 1 seconds
         self.timer_warning = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
@@ -86,7 +88,7 @@ class WatchdogNode(Node):
         self.motor_current = msg.state.current_motor
         self.motor_temperature = msg.state.temp_motor
         # Implement safety checks
-        if self.battery_voltage < 9.0 or self.battery_voltage > 52.0:
+        if self.battery_voltage < config.criticalVoltage:
             self.get_logger().warn(f"Battery voltage out of range: {self.battery_voltage}V")
             self.isCritical=True
         if self.motor_temperature > 80.0:
@@ -134,7 +136,7 @@ class WatchdogNode(Node):
             self.lidar_status = True
             
         if elapsed > 1.0:
-            issCritical = True
+            self.isCritical = True
         
         
     def generate_status_message(self): # VElocity and angular 
