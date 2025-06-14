@@ -1,9 +1,11 @@
 import rclpy
+import time
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 from sensor_msgs.msg import LaserScan
 from rclpy.time import Time
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Image
 from vesc_msgs.msg import VescStateStamped
 
 import config
@@ -18,7 +20,8 @@ class WatchdogNode(Node):
         super().__init__('WatchdogNode')
         
         # Internal state variables
-        self.lidar_timeout = 1.0  
+        self.lidar_timeout = 0.5  
+        self.camera_timeout = 0.5  
         self.battery_voltage = 0.0
         self.motor_current = 0.0
         self.motor_temperature = 0.0
@@ -30,6 +33,9 @@ class WatchdogNode(Node):
         self.lidar_previous = None
         self.last_msg_time = None
         self.isCritical = False
+        self.last_image_time = time.time()
+        self.image_time = -10
+        self.camera_is_live = False
  
         
         
@@ -43,6 +49,13 @@ class WatchdogNode(Node):
             self.sub_core_callback,
             10)
         self.sub_core
+        
+        self.sub_camera = self.create_subscription(
+            Image,
+            '/camera/camera/color/image_raw',
+            self.sub_camera_callback,
+            10)
+        self.sub_camera
 
         self.sub_scanLidar = self.create_subscription(
             LaserScan,
@@ -61,14 +74,18 @@ class WatchdogNode(Node):
         self.publisherStop= self.create_publisher(Bool, '/watchdog/critical', 10)
         
         # Publisher 
-        self.publisherWarning= self.create_publisher(String, '/watchdog/warning', 10) 
+        #self.publisherWarning= self.create_publisher(String, '/watchdog/warning', 10) 
         
         # Publisher
         self.publisherStatus = self.create_publisher(String, '/watchdog/system/status', 10)
+        
+        # Publisher
+        self.status_publisher = self.create_publisher(Bool, '/watchdog/camera_is_live', 10)
 
         self.timer_status = self.create_timer(1.0, self.publish_status_message)  # every 1 seconds
-        self.timer_warning = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
-        self.timer_critical = self.create_timer(1.0, self.publish_critical)  # every 1 seconds
+        #self.timer_warning = self.create_timer(1.0, self.publish_warning)  # every 1 seconds
+        self.timer_critical = self.create_timer(0.5, self.publish_camera_status)  # every 0.5 seconds
+        self.timer_critical = self.create_timer(0.5, self.publish_critical) 
 
 
     def odom_callback(self, msg):
@@ -83,7 +100,21 @@ class WatchdogNode(Node):
         #self.get_logger().info(f"Linear Velocity: {self.motor_velocity} m/s")
         #self.get_logger().info(f"Angular Velocity: {self.motor_angularvelocity} rad/s")
 
-    def sub_core_callback(self, msg: VescStateStamped):
+    def sub_camera_callback(self):
+        image_time = time.time()
+        if self.last_image_time == -10:
+            self.last_image_time = image_time
+            self.get_logger().info("Initializing camera timestamp")
+            return
+        if image_time - self.last_image_time > self.camera_timeout:
+            self.camera_is_live = False
+            self.get_logger().warn(f"{red}Camera is not live{reset}")
+        else:
+            self.camera_is_live = True
+        self.last_image_time = image_time
+    
+
+    def sub_core_callback(self, msg: VescStateStamped): 
         self.battery_voltage = msg.state.voltage_input
         self.motor_current = msg.state.current_motor
         self.motor_temperature = msg.state.temp_motor
@@ -210,7 +241,18 @@ class WatchdogNode(Node):
 
         return warning_msg
     
-
+    def publish_camera_status(self):
+        msg = Bool()
+        msg.data = self.camera_is_live
+        self.status_publisher.publish(msg)
+        
+        if not self.camera_is_live:
+            self.get_logger().warn(f"{red}Camera is not live{reset}")
+        
+        #self.get_logger().info("Camera is live")
+        #self.get_logger().info(f"Camera is live: {self.camera_is_live}")
+    
+    
 
 
 
