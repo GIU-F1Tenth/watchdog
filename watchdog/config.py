@@ -1,1 +1,0 @@
-criticalVoltage = 12 
