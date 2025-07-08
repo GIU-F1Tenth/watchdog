@@ -129,8 +129,9 @@ This package follows PEP 8 style guidelines and includes:
 
 ## Authors
 
--   **Fam Shihata** - _Primary maintainer_ - fam@awadlouis.com
--   **Mohammed Azab** - _Original author_ - mo7ammed3zab@outlook.com
+-   **Fam Shihata** - _Maintainer_ - fam@awadlouis.com
+-   **Mohammed Azab** - _Original co-author_ - mo7ammed3zab@outlook.com
+-   **Nada Mahmoud** - _Original co-author_
 
 ## License
 
