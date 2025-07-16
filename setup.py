@@ -13,7 +13,6 @@ setup(
         ('share/' + package_name + '/config', ['config/watchdog_params.yaml']),
         ('share/' + package_name + '/launch', [
             'launch/watchdog.launch.py',
-            'launch/legacy_watchdog.launch.py'
         ]),
     ],
     install_requires=['setuptools'],
