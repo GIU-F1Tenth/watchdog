@@ -4,23 +4,28 @@ package_name = 'watchdog'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='1.0.0',
     packages=[package_name],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/config', ['config/watchdog_params.yaml']),
+        ('share/' + package_name + '/launch', [
+            'launch/watchdog.launch.py',
+        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='mohammedazab',
-    maintainer_email='mohammed3zab@outlook.com',
-    description='Watchdog node for system monitoring',
+    maintainer='Fam Shihata',
+    maintainer_email='fam@awadlouis.com',
+    description='A ROS2 watchdog node for F1TENTH system monitoring and safety',
     license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'Watchdog_Node = watchdog.watchdogNode:main'
+            'watchdog_node = watchdog.watchdog_node:main',
+            # 'Watchdog_Node = watchdog.watchdogNode:main'   Deprecated entry point
         ],
     },
 )
