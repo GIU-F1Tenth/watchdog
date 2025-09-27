@@ -14,6 +14,11 @@ setup(
         ('share/' + package_name + '/launch', [
             'launch/watchdog.launch.py',
         ]),
+        ('share/' + package_name + '/msg', [
+            'msg/SanityWarning.msg',
+            'msg/SensorHealth.msg', 
+            'msg/SanitySummary.msg',
+        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
