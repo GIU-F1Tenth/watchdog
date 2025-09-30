@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# ROS2 build artifacts
+build/
+install/
+log/
