@@ -1,11 +1,11 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 package_name = 'watchdog'
 
 setup(
     name=package_name,
     version='1.0.0',
-    packages=[package_name],
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -30,6 +30,7 @@ setup(
     entry_points={
         'console_scripts': [
             'watchdog_node = watchdog.watchdog_node:main',
+            'fsm_integration_node = watchdog.fsm_integration:main',
             # 'Watchdog_Node = watchdog.watchdogNode:main'   Deprecated entry point
         ],
     },

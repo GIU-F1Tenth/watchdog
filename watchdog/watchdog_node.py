@@ -24,6 +24,29 @@ from sensor_msgs.msg import LaserScan, Image
 from nav_msgs.msg import Odometry
 from vesc_msgs.msg import VescStateStamped
 
+# Import sanity checking components
+try:
+    # Try absolute import first (for installed package)
+    from watchdog.sanity_checker import SanityChecker
+    from watchdog.validators import LiDARValidator, BatteryValidator, CameraValidator, OdometryValidator
+except ImportError:
+    try:
+        # Try relative import (for development)
+        from .sanity_checker import SanityChecker
+        from .validators import LiDARValidator, BatteryValidator, CameraValidator, OdometryValidator
+    except ImportError:
+        # Fallback for when running as standalone script
+        from sanity_checker import SanityChecker
+        from validators import LiDARValidator, BatteryValidator, CameraValidator, OdometryValidator
+
+# Import custom messages (will be available after build)
+try:
+    from watchdog.msg import SanityWarning, SensorHealth, SanitySummary
+    MESSAGES_AVAILABLE = False  # Disable custom messages for now due to field compatibility issues
+except ImportError:
+    # Messages not built yet, use String messages as fallback
+    MESSAGES_AVAILABLE = False
+
 
 class WatchdogNode(Node):
     """
@@ -84,6 +107,15 @@ class WatchdogNode(Node):
         self.declare_parameter('camera_status_topic',
                                '/tmp/watchdog/camera_is_live')
 
+        # Sanity checking topics
+        self.declare_parameter('sanity_warning_topic', '/watchdog/sanity/warnings')
+        self.declare_parameter('sensor_health_topic', '/watchdog/sanity/sensor_health')
+        self.declare_parameter('sanity_summary_topic', '/watchdog/sanity/summary')
+
+        # Sanity checking parameters
+        self.declare_parameter('sanity_check_enabled', True)
+        self.declare_parameter('sanity_check_interval', 0.1)
+
         # QoS settings
         self.declare_parameter('subscription_qos_depth', 10)
         self.declare_parameter('publisher_qos_depth', 10)
@@ -138,6 +170,20 @@ class WatchdogNode(Node):
         self.camera_status_topic = self.get_parameter(
             'camera_status_topic').get_parameter_value().string_value
 
+        # Sanity checking topics
+        self.sanity_warning_topic = self.get_parameter(
+            'sanity_warning_topic').get_parameter_value().string_value
+        self.sensor_health_topic = self.get_parameter(
+            'sensor_health_topic').get_parameter_value().string_value
+        self.sanity_summary_topic = self.get_parameter(
+            'sanity_summary_topic').get_parameter_value().string_value
+
+        # Sanity checking parameters
+        self.sanity_check_enabled = self.get_parameter(
+            'sanity_check_enabled').get_parameter_value().bool_value
+        self.sanity_check_interval = self.get_parameter(
+            'sanity_check_interval').get_parameter_value().double_value
+
         # QoS settings
         self.qos_depth = self.get_parameter(
             'subscription_qos_depth').get_parameter_value().integer_value
@@ -166,6 +212,11 @@ class WatchdogNode(Node):
 
         # Critical state
         self.is_critical: bool = False
+
+        # Initialize sanity checker if enabled
+        self.sanity_checker: Optional[SanityChecker] = None
+        if self.sanity_check_enabled:
+            self._initialize_sanity_checker()
 
     def _setup_subscriptions(self) -> None:
         """Setup ROS2 subscriptions for sensor data."""
@@ -217,6 +268,46 @@ class WatchdogNode(Node):
             self.pub_qos_depth
         )
 
+        # Sanity checking publishers
+        if self.sanity_check_enabled:
+            if MESSAGES_AVAILABLE:
+                self.sanity_warning_publisher = self.create_publisher(
+                    SanityWarning,
+                    self.sanity_warning_topic,
+                    self.pub_qos_depth
+                )
+
+                self.sensor_health_publisher = self.create_publisher(
+                    SensorHealth,
+                    self.sensor_health_topic,
+                    self.pub_qos_depth
+                )
+
+                self.sanity_summary_publisher = self.create_publisher(
+                    SanitySummary,
+                    self.sanity_summary_topic,
+                    self.pub_qos_depth
+                )
+            else:
+                # Use String messages as fallback
+                self.sanity_warning_publisher = self.create_publisher(
+                    String,
+                    self.sanity_warning_topic,
+                    self.pub_qos_depth
+                )
+
+                self.sensor_health_publisher = self.create_publisher(
+                    String,
+                    self.sensor_health_topic,
+                    self.pub_qos_depth
+                )
+
+                self.sanity_summary_publisher = self.create_publisher(
+                    String,
+                    self.sanity_summary_topic,
+                    self.pub_qos_depth
+                )
+
     def _setup_timers(self) -> None:
         """Setup periodic timers for status updates and checks."""
         self.status_timer = self.create_timer(
@@ -238,6 +329,13 @@ class WatchdogNode(Node):
             self.critical_check_interval,
             self._publish_camera_status
         )
+
+        # Sanity checking timer
+        if self.sanity_check_enabled:
+            self.sanity_check_timer = self.create_timer(
+                self.sanity_check_interval,
+                self._run_sanity_checks
+            )
 
     def _odom_callback(self, msg: Odometry) -> None:
         """
@@ -262,6 +360,10 @@ class WatchdogNode(Node):
             msg: Image message from camera
         """
         self.last_image_time = time.time()
+        
+        # Store latest camera message for sanity checking
+        if self.sanity_check_enabled:
+            self._last_camera_msg = msg
 
     def _check_camera_status(self) -> None:
         """Check if camera is providing live data within timeout period."""
@@ -305,6 +407,10 @@ class WatchdogNode(Node):
         """
         self.last_lidar_msg_time = msg.header.stamp
 
+        # Store latest LiDAR message for sanity checking
+        if self.sanity_check_enabled:
+            self._last_lidar_msg = msg
+
         if self.lidar_previous_time is None:
             self.lidar_previous_time = self.last_lidar_msg_time
             return
@@ -326,6 +432,184 @@ class WatchdogNode(Node):
         # Check for critical timeout
         if elapsed_time > self.lidar_critical_timeout:
             self.is_critical = True
+
+    def _initialize_sanity_checker(self) -> None:
+        """Initialize the sanity checker with validators."""
+        try:
+            # Create config dictionary from node parameters
+            config = {}
+            param_names = [
+                'sanity_checks_enabled', 'sanity_check_interval', 'warning_history_size',
+                'health_update_interval', 'cross_sensor_validation_enabled',
+                'lidar_camera_correlation_threshold', 'odometry_visual_odometry_threshold',
+                'position_consistency_threshold', 'temporal_sync_threshold',
+                'environment_consistency_window', 'outlier_detection_sigma',
+                # LiDAR parameters
+                'lidar_min_range', 'lidar_max_range', 'lidar_noise_threshold',
+                'lidar_dead_zone_threshold', 'lidar_min_valid_points',
+                # Battery parameters  
+                'min_voltage', 'max_voltage', 'critical_voltage', 'motor_current_max',
+                'max_temp', 'battery_max_voltage_change_rate', 'battery_trend_window_size',
+                # Camera parameters
+                'camera_min_brightness', 'camera_max_brightness', 'camera_blur_threshold',
+                'camera_corruption_threshold', 'camera_min_resolution',
+                # Odometry parameters
+                'odometry_max_linear_velocity', 'odometry_max_angular_velocity',
+                'odometry_max_linear_acceleration', 'odometry_max_angular_acceleration'
+            ]
+            
+            for param_name in param_names:
+                try:
+                    param_value = self.get_parameter(param_name).value
+                    config[param_name] = param_value
+                except:
+                    # Parameter not found, skip
+                    pass
+            
+            self.sanity_checker = SanityChecker(self, config)
+            
+            # Register validators with config dictionaries
+            if config.get('lidar_sanity_enabled', True):
+                self.sanity_checker.register_validator(LiDARValidator(config))
+            if config.get('battery_sanity_enabled', True):
+                self.sanity_checker.register_validator(BatteryValidator(config))
+            if config.get('camera_sanity_enabled', True):
+                self.sanity_checker.register_validator(CameraValidator(config))
+            if config.get('odometry_sanity_enabled', True):
+                self.sanity_checker.register_validator(OdometryValidator(config))
+            
+            self.get_logger().info("Sanity checker initialized with all validators")
+        except Exception as e:
+            self.get_logger().error(f"Failed to initialize sanity checker: {e}")
+            self.sanity_check_enabled = False
+
+    def _run_sanity_checks(self) -> None:
+        """Run sanity checks on all sensor data."""
+        if not self.sanity_checker:
+            return
+
+        try:
+            # Check LiDAR data if available
+            if hasattr(self, '_last_lidar_msg'):
+                results = self.sanity_checker.validate_sensor_data('lidar', self._last_lidar_msg)
+                self._process_sanity_results('lidar', results)
+                # Update cross-sensor data
+                self.sanity_checker.update_cross_sensor_data('lidar', self._last_lidar_msg)
+
+            # Check battery/VESC data
+            if self.battery_voltage > 0:
+                vesc_data = {
+                    'voltage': self.battery_voltage,
+                    'current': self.motor_current,
+                    'temperature': self.motor_temperature
+                }
+                results = self.sanity_checker.validate_sensor_data('battery', vesc_data)
+                self._process_sanity_results('battery', results)
+                # Update cross-sensor data
+                self.sanity_checker.update_cross_sensor_data('battery', vesc_data)
+
+            # Check camera data if available
+            if hasattr(self, '_last_camera_msg'):
+                results = self.sanity_checker.validate_sensor_data('camera', self._last_camera_msg)
+                self._process_sanity_results('camera', results)
+                # Update cross-sensor data
+                self.sanity_checker.update_cross_sensor_data('camera', self._last_camera_msg)
+
+            # Check odometry data
+            if self.motor_velocity != 0 or self.motor_angular_velocity != 0:
+                odom_data = {
+                    'linear_velocity': self.motor_velocity,
+                    'angular_velocity': self.motor_angular_velocity
+                }
+                results = self.sanity_checker.validate_sensor_data('odometry', odom_data)
+                self._process_sanity_results('odometry', results)
+                # Update cross-sensor data
+                self.sanity_checker.update_cross_sensor_data('odometry', odom_data)
+
+            # Perform cross-sensor validation
+            cross_sensor_result = self.sanity_checker.validate_cross_sensor_consistency()
+            if cross_sensor_result:
+                self._process_sanity_results('cross_sensor', cross_sensor_result)
+
+            # Publish sensor health summary
+            self._publish_sensor_health()
+            
+        except Exception as e:
+            self.get_logger().error(f"Error during sanity checks: {e}")
+
+    def _process_sanity_results(self, sensor_name: str, results: list) -> None:
+        """Process sanity check results and publish warnings if needed."""
+        for result in results:
+            if not result.is_valid:
+                if MESSAGES_AVAILABLE:
+                    # Create proper SanityWarning message
+                    warning_msg = SanityWarning()
+                    warning_msg.sensor_name = sensor_name
+                    warning_msg.anomaly_type = result.anomaly_type
+                    warning_msg.severity = result.severity
+                    warning_msg.description = result.description
+                    warning_msg.timestamp = self.get_clock().now().to_msg()
+                    warning_msg.suggested_action = result.suggested_action or ""
+                else:
+                    # Create warning message as string fallback
+                    warning_msg = String()
+                    warning_content = f"SANITY WARNING - {sensor_name.upper()}: {result.description}"
+                    if result.suggested_action:
+                        warning_content += f" | Action: {result.suggested_action}"
+                    warning_msg.data = warning_content
+                
+                # Publish warning
+                self.sanity_warning_publisher.publish(warning_msg)
+                
+                # Log warning
+                log_msg = f"SANITY WARNING - {sensor_name.upper()}: {result.description}"
+                self.get_logger().warn(log_msg)
+                
+                # Set critical if severity is high
+                if hasattr(result, 'severity') and result.severity >= 3:  # HIGH or CRITICAL
+                    self.is_critical = True
+
+    def _publish_sensor_health(self) -> None:
+        """Publish sensor health summary."""
+        if not self.sanity_checker:
+            return
+            
+        try:
+            health_summary = self.sanity_checker.get_health_summary()
+            
+            if MESSAGES_AVAILABLE:
+                # Create proper SensorHealth message for each sensor
+                for sensor, health in health_summary.items():
+                    health_msg = SensorHealth()
+                    health_msg.sensor_name = sensor
+                    health_msg.health_score = health['health_score']
+                    health_msg.active_anomalies = health.get('active_anomalies', [])
+                    # Note: timestamp field may not be available in message definition
+                    self.sensor_health_publisher.publish(health_msg)
+                
+                # Create summary message
+                summary_msg = SanitySummary()
+                summary_msg.total_sensors = len(health_summary)
+                summary_msg.healthy_sensors = sum(1 for h in health_summary.values() 
+                                                 if h['health_score'] > 80.0)
+                summary_msg.sensors_with_anomalies = sum(1 for h in health_summary.values() 
+                                                        if len(h.get('active_anomalies', [])) > 0)
+                summary_msg.overall_health_score = sum(h['health_score'] for h in health_summary.values()) / len(health_summary)
+                # Note: timestamp field may not be available in message definition
+                self.sanity_summary_publisher.publish(summary_msg)
+            else:
+                # Create health message as string fallback
+                health_msg = String()
+                health_content = f"Sensor Health Summary: {len(health_summary)} sensors monitored"
+                for sensor, health in health_summary.items():
+                    health_content += f" | {sensor}: {health['health_score']:.1f}% "
+                    if health.get('active_anomalies'):
+                        health_content += f"({len(health['active_anomalies'])} anomalies)"
+                health_msg.data = health_content
+                self.sensor_health_publisher.publish(health_msg)
+            
+        except Exception as e:
+            self.get_logger().error(f"Error publishing sensor health: {e}")
 
     def _generate_status_message(self) -> str:
         """
@@ -387,6 +671,24 @@ class WatchdogNode(Node):
         else:
             vesc_state = "Operational" if self.vesc_status else "Faulty"
             status_lines.append(f"VESC: {vesc_state}")
+
+        # Sanity checking status
+        if self.sanity_check_enabled and self.sanity_checker:
+            try:
+                health_summary = self.sanity_checker.get_health_summary()
+                status_lines.append(f"Sanity Check: {len(health_summary)} sensors monitored")
+                
+                # Add brief health summary
+                for sensor, health in health_summary.items():
+                    anomaly_count = len(health.get('active_anomalies', []))
+                    if anomaly_count > 0:
+                        status_lines.append(f"  {sensor}: {health['health_score']:.0f}% ({anomaly_count} anomalies)")
+            except Exception:
+                status_lines.append("Sanity Check: Error retrieving status")
+        elif self.sanity_check_enabled:
+            status_lines.append("Sanity Check: Initializing...")
+        else:
+            status_lines.append("Sanity Check: Disabled")
 
         return "\n".join(status_lines)
 

@@ -1,0 +1,46 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from watchdog/msg/SanitySummary.msg
+// generated code does not contain a copyright notice
+
+#include "builtin_interfaces/msg/Time.idl"
+
+module watchdog {
+  module msg {
+    @verbatim (language="comment", text=
+      "SanitySummary.msg" "\n"
+      "Quick summary message for FSM decision making")
+    struct SanitySummary {
+      @verbatim (language="comment", text=
+        "Overall system sanity status")
+      boolean system_healthy;
+
+      @verbatim (language="comment", text=
+        "Are there any critical issues requiring immediate action?")
+      boolean has_critical_issues;
+
+      @verbatim (language="comment", text=
+        "Are there any errors that require fallback actions?")
+      boolean has_errors;
+
+      @verbatim (language="comment", text=
+        "Are there any warnings to be aware of?")
+      boolean has_warnings;
+
+      @verbatim (language="comment", text=
+        "List of sensors with issues")
+      sequence<string> sensors_with_issues;
+
+      @verbatim (language="comment", text=
+        "Highest severity level currently active (1-4)")
+      uint8 max_severity_level;
+
+      @verbatim (language="comment", text=
+        "Timestamp of this summary")
+      builtin_interfaces::msg::Time timestamp;
+
+      @verbatim (language="comment", text=
+        "Brief description of most critical issue (empty if system_healthy=true)")
+      string critical_issue_summary;
+    };
+  };
+};

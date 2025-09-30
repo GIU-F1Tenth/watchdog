@@ -12,6 +12,7 @@ Version: 1.0.0
 """
 
 import time
+import itertools
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict, deque
 import rclpy
@@ -21,6 +22,12 @@ try:
     from .base_validator import BaseValidator, ValidationResult, SeverityLevel
 except ImportError:
     from base_validator import BaseValidator, ValidationResult, SeverityLevel
+
+try:
+    from .validators.cross_sensor_validator import CrossSensorValidator
+    CROSS_SENSOR_AVAILABLE = True
+except ImportError:
+    CROSS_SENSOR_AVAILABLE = False
 
 
 class SensorHealthTracker:
@@ -125,6 +132,11 @@ class SanityChecker:
         self.validators: Dict[str, BaseValidator] = {}
         self.health_trackers: Dict[str, SensorHealthTracker] = {}
         
+        # Cross-sensor validation
+        self.cross_sensor_data_buffer: Dict[str, Any] = {}
+        self.cross_sensor_enabled = config.get('cross_sensor_validation_enabled', True)
+        self.cross_sensor_validator = None
+        
         # Warning management
         self.warning_history = deque(maxlen=config.get('warning_history_size', 100))
         self.active_warnings: Dict[str, List[ValidationResult]] = defaultdict(list)
@@ -138,6 +150,17 @@ class SanityChecker:
         self.outlier_sigma = config.get('outlier_detection_sigma', 2.0)
         self.health_update_interval = config.get('health_update_interval', 1.0)
         self.last_health_update = 0.0
+        
+        # Initialize cross-sensor validator if available and enabled
+        if self.cross_sensor_enabled and CROSS_SENSOR_AVAILABLE:
+            try:
+                self.cross_sensor_validator = CrossSensorValidator(config)
+                self.node.get_logger().info("Cross-sensor validation enabled")
+            except Exception as e:
+                self.node.get_logger().error(f"Failed to initialize cross-sensor validator: {e}")
+                self.cross_sensor_enabled = False
+        else:
+            self.node.get_logger().info("Cross-sensor validation disabled")
         
         self.node.get_logger().info("SanityChecker initialized")
         
@@ -367,18 +390,28 @@ class SanityChecker:
             'total_warnings': self.total_warnings
         }
         
+    def get_health_summary(self) -> Dict[str, Any]:
+        """
+        Get health summary for the watchdog node.
+        
+        This returns sensor-specific health data for compatibility with the watchdog node.
+        
+        Returns:
+            Dictionary with sensor-specific health information
+        """
+        return self.get_all_sensor_health()
+    
     def get_recent_warnings(self, count: int = 10) -> List[ValidationResult]:
         """
-        Get recent validation warnings.
+        Get the most recent warnings.
         
         Args:
             count: Maximum number of warnings to return
             
         Returns:
-            List of recent ValidationResult objects with issues
+            List of recent validation results with warnings
         """
-        recent_invalid = [w for w in self.warning_history if not w.is_valid]
-        return recent_invalid[-count:] if len(recent_invalid) > count else recent_invalid
+        return list(itertools.islice(reversed(self.warning_history), count))
         
     def _get_average_confidence(self, sensor_name: str) -> float:
         """
@@ -456,3 +489,67 @@ class SanityChecker:
         """Disable sanity checking."""
         self.enabled = False
         self.node.get_logger().info("Sanity checking disabled")
+    
+    def update_cross_sensor_data(self, sensor_name: str, data: Any) -> None:
+        """
+        Update cross-sensor data buffer for multi-sensor validation.
+        
+        Args:
+            sensor_name: Name of the sensor providing data
+            data: Sensor data to store
+        """
+        if self.cross_sensor_enabled:
+            self.cross_sensor_data_buffer[sensor_name] = data
+    
+    def validate_cross_sensor_consistency(self) -> Optional[ValidationResult]:
+        """
+        Perform cross-sensor consistency validation.
+        
+        Returns:
+            ValidationResult if cross-sensor issues detected, None otherwise
+        """
+        if not self.cross_sensor_enabled or not self.cross_sensor_validator:
+            return None
+            
+        if len(self.cross_sensor_data_buffer) < 2:
+            # Need at least 2 sensors for cross-validation
+            return None
+            
+        try:
+            result = self.cross_sensor_validator.validate(self.cross_sensor_data_buffer)
+            
+            if not result.is_valid:
+                self.node.get_logger().warning(f"Cross-sensor validation failed: {result.description}")
+                self.total_warnings += 1
+                
+                # Store the warning
+                self.warning_history.append({
+                    'timestamp': time.time(),
+                    'sensor_name': 'cross_sensor',
+                    'anomaly_type': result.anomaly_type,
+                    'severity': result.severity,
+                    'description': result.description,
+                    'suggested_action': result.suggested_action,
+                    'confidence': result.confidence
+                })
+                
+            return result
+            
+        except Exception as e:
+            self.node.get_logger().error(f"Cross-sensor validation error: {e}")
+            return None
+    
+    def get_cross_sensor_status(self) -> Dict[str, Any]:
+        """
+        Get status of cross-sensor validation.
+        
+        Returns:
+            Dictionary with cross-sensor validation status
+        """
+        return {
+            'enabled': self.cross_sensor_enabled,
+            'available': CROSS_SENSOR_AVAILABLE,
+            'active_sensors': list(self.cross_sensor_data_buffer.keys()),
+            'sensor_count': len(self.cross_sensor_data_buffer),
+            'last_validation': getattr(self, '_last_cross_sensor_validation', None)
+        }
