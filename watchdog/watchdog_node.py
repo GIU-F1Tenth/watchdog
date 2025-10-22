@@ -39,13 +39,8 @@ except ImportError:
         from sanity_checker import SanityChecker
         from validators import LiDARValidator, BatteryValidator, CameraValidator, OdometryValidator
 
-# Import custom messages (will be available after build)
-try:
-    from watchdog.msg import SanityWarning, SensorHealth, SanitySummary
-    MESSAGES_AVAILABLE = False  # Disable custom messages for now due to field compatibility issues
-except ImportError:
-    # Messages not built yet, use String messages as fallback
-    MESSAGES_AVAILABLE = False
+# Custom watchdog messages are provided via the shared interfaces repo.
+# In this package we publish simple String summaries for compatibility.
 
 
 class WatchdogNode(Node):
@@ -58,7 +53,12 @@ class WatchdogNode(Node):
 
     def __init__(self):
         """Initialize the watchdog node with parameters and subscriptions."""
-        super().__init__('watchdog_node')
+        # Automatically declare parameters provided via YAML, including optional vehicle
+        # configuration fields carried over from F1TENTH-specific configs.
+        super().__init__(
+            'watchdog_node',
+            automatically_declare_parameters_from_overrides=True
+        )
 
         # Declare and get parameters
         self._declare_parameters()
@@ -270,43 +270,24 @@ class WatchdogNode(Node):
 
         # Sanity checking publishers
         if self.sanity_check_enabled:
-            if MESSAGES_AVAILABLE:
-                self.sanity_warning_publisher = self.create_publisher(
-                    SanityWarning,
-                    self.sanity_warning_topic,
-                    self.pub_qos_depth
-                )
+            # Publish human-readable summaries using std_msgs/String
+            self.sanity_warning_publisher = self.create_publisher(
+                String,
+                self.sanity_warning_topic,
+                self.pub_qos_depth
+            )
 
-                self.sensor_health_publisher = self.create_publisher(
-                    SensorHealth,
-                    self.sensor_health_topic,
-                    self.pub_qos_depth
-                )
+            self.sensor_health_publisher = self.create_publisher(
+                String,
+                self.sensor_health_topic,
+                self.pub_qos_depth
+            )
 
-                self.sanity_summary_publisher = self.create_publisher(
-                    SanitySummary,
-                    self.sanity_summary_topic,
-                    self.pub_qos_depth
-                )
-            else:
-                # Use String messages as fallback
-                self.sanity_warning_publisher = self.create_publisher(
-                    String,
-                    self.sanity_warning_topic,
-                    self.pub_qos_depth
-                )
-
-                self.sensor_health_publisher = self.create_publisher(
-                    String,
-                    self.sensor_health_topic,
-                    self.pub_qos_depth
-                )
-
-                self.sanity_summary_publisher = self.create_publisher(
-                    String,
-                    self.sanity_summary_topic,
-                    self.pub_qos_depth
-                )
+            self.sanity_summary_publisher = self.create_publisher(
+                String,
+                self.sanity_summary_topic,
+                self.pub_qos_depth
+            )
 
     def _setup_timers(self) -> None:
         """Setup periodic timers for status updates and checks."""
@@ -541,22 +522,12 @@ class WatchdogNode(Node):
         """Process sanity check results and publish warnings if needed."""
         for result in results:
             if not result.is_valid:
-                if MESSAGES_AVAILABLE:
-                    # Create proper SanityWarning message
-                    warning_msg = SanityWarning()
-                    warning_msg.sensor_name = sensor_name
-                    warning_msg.anomaly_type = result.anomaly_type
-                    warning_msg.severity = result.severity
-                    warning_msg.description = result.description
-                    warning_msg.timestamp = self.get_clock().now().to_msg()
-                    warning_msg.suggested_action = result.suggested_action or ""
-                else:
-                    # Create warning message as string fallback
-                    warning_msg = String()
-                    warning_content = f"SANITY WARNING - {sensor_name.upper()}: {result.description}"
-                    if result.suggested_action:
-                        warning_content += f" | Action: {result.suggested_action}"
-                    warning_msg.data = warning_content
+                # Create warning message as string
+                warning_msg = String()
+                warning_content = f"SANITY WARNING - {sensor_name.upper()}: {result.description}"
+                if result.suggested_action:
+                    warning_content += f" | Action: {result.suggested_action}"
+                warning_msg.data = warning_content
                 
                 # Publish warning
                 self.sanity_warning_publisher.publish(warning_msg)
@@ -577,36 +548,15 @@ class WatchdogNode(Node):
         try:
             health_summary = self.sanity_checker.get_health_summary()
             
-            if MESSAGES_AVAILABLE:
-                # Create proper SensorHealth message for each sensor
-                for sensor, health in health_summary.items():
-                    health_msg = SensorHealth()
-                    health_msg.sensor_name = sensor
-                    health_msg.health_score = health['health_score']
-                    health_msg.active_anomalies = health.get('active_anomalies', [])
-                    # Note: timestamp field may not be available in message definition
-                    self.sensor_health_publisher.publish(health_msg)
-                
-                # Create summary message
-                summary_msg = SanitySummary()
-                summary_msg.total_sensors = len(health_summary)
-                summary_msg.healthy_sensors = sum(1 for h in health_summary.values() 
-                                                 if h['health_score'] > 80.0)
-                summary_msg.sensors_with_anomalies = sum(1 for h in health_summary.values() 
-                                                        if len(h.get('active_anomalies', [])) > 0)
-                summary_msg.overall_health_score = sum(h['health_score'] for h in health_summary.values()) / len(health_summary)
-                # Note: timestamp field may not be available in message definition
-                self.sanity_summary_publisher.publish(summary_msg)
-            else:
-                # Create health message as string fallback
-                health_msg = String()
-                health_content = f"Sensor Health Summary: {len(health_summary)} sensors monitored"
-                for sensor, health in health_summary.items():
-                    health_content += f" | {sensor}: {health['health_score']:.1f}% "
-                    if health.get('active_anomalies'):
-                        health_content += f"({len(health['active_anomalies'])} anomalies)"
-                health_msg.data = health_content
-                self.sensor_health_publisher.publish(health_msg)
+            # Create health message as string summary
+            health_msg = String()
+            health_content = f"Sensor Health Summary: {len(health_summary)} sensors monitored"
+            for sensor, health in health_summary.items():
+                health_content += f" | {sensor}: {health['health_score']:.1f}% "
+                if health.get('active_anomalies'):
+                    health_content += f"({len(health['active_anomalies'])} anomalies)"
+            health_msg.data = health_content
+            self.sensor_health_publisher.publish(health_msg)
             
         except Exception as e:
             self.get_logger().error(f"Error publishing sensor health: {e}")

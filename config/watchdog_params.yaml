@@ -1,5 +1,10 @@
 watchdog_node:
     ros__parameters:
+        # Vehicle configuration (migrated from deprecated f1tenth_params.yaml)
+        vehicle_type: "f1tenth"
+        max_speed: 8.0         # m/s
+        wheelbase: 0.33        # meters
+        racing_mode: true
         # Voltage thresholds
         critical_voltage: 12.0
         min_voltage: 9.0
@@ -37,11 +42,12 @@ watchdog_node:
         node_name: "watchdog_node"
         log_level: "INFO" # DEBUG, INFO, WARN, ERROR, FATAL
 
-        # ===== SANITY CHECK CONFIGURATION =====
-        
-        # Global Sanity Check Settings
-        sanity_checks_enabled: true
-        sanity_check_interval: 0.1  # seconds between sanity checks
+    # ===== SANITY CHECK CONFIGURATION =====
+
+    # Global Sanity Check Settings
+    # Note: parameter names align with watchdog_node declarations
+    sanity_check_enabled: true
+    sanity_check_interval: 0.1  # seconds between sanity checks
         warning_history_size: 100   # number of warnings to keep in memory
         health_update_interval: 1.0 # seconds between health score updates
 
@@ -103,7 +109,8 @@ watchdog_node:
         trend_analysis_enabled: true
         prediction_validation_enabled: false  # enable predictive validation (experimental)
 
-        # Sanity Check Topics
-        sanity_warnings_topic: "/watchdog/sanity_warnings"
-        sensor_health_topic: "/watchdog/sensor_health" 
-        sanity_summary_topic: "/watchdog/sanity_summary"
+    # Sanity Check Topics
+    # Note: topic parameter names align with watchdog_node declarations
+    sanity_warning_topic: "/watchdog/sanity_warnings"
+    sensor_health_topic: "/watchdog/sensor_health"
+    sanity_summary_topic: "/watchdog/sanity_summary"

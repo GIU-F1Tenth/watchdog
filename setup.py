@@ -14,11 +14,6 @@ setup(
         ('share/' + package_name + '/launch', [
             'launch/watchdog.launch.py',
         ]),
-        ('share/' + package_name + '/msg', [
-            'msg/SanityWarning.msg',
-            'msg/SensorHealth.msg', 
-            'msg/SanitySummary.msg',
-        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,9 +24,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            # Canonical entry point
             'watchdog_node = watchdog.watchdog_node:main',
-            'fsm_integration_node = watchdog.fsm_integration:main',
-            # 'Watchdog_Node = watchdog.watchdogNode:main'   Deprecated entry point
+            # Aliases for backward compatibility (map old names to the same main)
+            'Watchdog_Node = watchdog.watchdog_node:main',
+            'watchdogNode = watchdog.watchdog_node:main',
         ],
     },
 )

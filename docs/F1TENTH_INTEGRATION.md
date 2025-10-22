@@ -345,3 +345,17 @@ top -p $(pgrep -f watchdog)
 ---
 
 For additional support or questions about F1TENTH integration, please refer to the main documentation or contact the maintainers.
+
+# F1TENTH Integration (Temporarily Removed)
+
+The watchdog package is designed to be independent from behavior controllers (FSMs).
+
+Per review feedback, F1TENTH-specific integration stubs and examples have been removed from this repository to keep the package focused and maintainable. When stable FSM integrations are available, they will live in their own repository with clear interfaces.
+
+Please use the standard launch file:
+
+```bash
+ros2 launch watchdog watchdog.launch.py
+```
+
+Configuration: see `config/watchdog_params.yaml` and the main README for parameters. This package is a core, non-optional safety component.
