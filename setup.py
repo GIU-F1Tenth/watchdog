@@ -1,11 +1,11 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 package_name = 'watchdog'
 
 setup(
     name=package_name,
     version='1.0.0',
-    packages=[package_name],
+    packages=find_packages(),
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -24,8 +24,11 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            # Canonical entry point
             'watchdog_node = watchdog.watchdog_node:main',
-            # 'Watchdog_Node = watchdog.watchdogNode:main'   Deprecated entry point
+            # Aliases for backward compatibility (map old names to the same main)
+            'Watchdog_Node = watchdog.watchdog_node:main',
+            'watchdogNode = watchdog.watchdog_node:main',
         ],
     },
 )

@@ -16,7 +16,10 @@ __author__ = "Fam Shihata, Mohammed Azab"
 __email__ = "fam@awadlouis.com, mo7ammed3zab@outlook.com"
 __license__ = "MIT"
 
-# Import main components for easier access
-from .watchdog_node import WatchdogNode
-
-__all__ = ['WatchdogNode']
+# Import main components for easier access (with fallback for testing)
+try:
+    from .watchdog_node import WatchdogNode
+    __all__ = ['WatchdogNode']
+except ImportError:
+    # Import failed (likely missing ROS dependencies), skip WatchdogNode
+    __all__ = []
